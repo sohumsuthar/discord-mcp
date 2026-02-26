@@ -13,11 +13,8 @@ MCP server that gives Claude Code the ability to send messages, files, images, a
 
 ## Multi-Server Routing
 
-Every tool accepts an optional `server` parameter to target a specific Discord server:
-- `"personal"` — Sohum's private server (notifications, personal use)
-- `"checkpoint"` — Shared chkpnt project server (team updates, project comms)
-
-If no server is specified, defaults to `personal`.
+Every tool accepts an optional `server` parameter to target a specific Discord server by alias.
+If no server is specified, defaults to the first alias with key `"personal"`, or the first entry.
 
 ## Available Tools
 

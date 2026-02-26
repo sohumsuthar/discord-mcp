@@ -21,7 +21,7 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const DEFAULT_CHANNEL_ID = process.env.DISCORD_DEFAULT_CHANNEL_ID || null;
 
 // Multi-guild support: DISCORD_GUILDS is a JSON object mapping alias -> guild ID
-// e.g. {"personal":"755496428683526276","checkpoint":"1476449580521361621"}
+// e.g. {"personal":"123456789","work":"987654321"}
 let GUILDS = {};
 try {
   GUILDS = JSON.parse(process.env.DISCORD_GUILDS || "{}");
