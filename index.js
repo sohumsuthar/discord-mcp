@@ -400,6 +400,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["channel"],
       },
     },
+    {
+      name: "discord_get_replies",
+      description:
+        "Check for replies to a specific message. Returns any messages that were sent as replies to the given message ID. Useful for checking if the user replied to a task-completion notification with a follow-up prompt.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          message_id: {
+            type: "string",
+            description: "The ID of the message to check for replies to",
+          },
+          channel: {
+            type: "string",
+            description:
+              "Channel name or ID where the message was sent (optional, uses default)",
+          },
+          server: SERVER_PARAM,
+          limit: {
+            type: "number",
+            description:
+              "Number of recent messages to scan for replies (default 20, max 50)",
+          },
+        },
+        required: ["message_id"],
+      },
+    },
   ],
 }));
 
@@ -416,19 +442,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           args.server
         );
         const msg = args.message;
+        let sentMessage;
         if (msg.length <= 2000) {
-          await channel.send(msg);
+          sentMessage = await channel.send(msg);
         } else {
           const chunks = msg.match(/[\s\S]{1,2000}/g);
           for (const chunk of chunks) {
-            await channel.send(chunk);
+            sentMessage = await channel.send(chunk);
           }
         }
         return {
           content: [
             {
               type: "text",
-              text: `Message sent to #${channel.name} in ${channel.guild.name}`,
+              text: `Message sent to #${channel.name} in ${channel.guild.name} (message_id: ${sentMessage.id})`,
             },
           ],
         };
@@ -623,16 +650,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const limit = Math.min(args.limit || 10, 50);
         const messages = await channel.messages.fetch({ limit });
         const formatted = messages.reverse().map((m) => ({
+          id: m.id,
           author: m.author.username,
           content: m.content,
           timestamp: m.createdAt.toISOString(),
           attachments: m.attachments.map((a) => a.url),
+          replyTo: m.reference?.messageId || null,
         }));
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify(formatted, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "discord_get_replies": {
+        const channel = await resolveChannelWithServer(
+          args.channel,
+          args.server
+        );
+        const limit = Math.min(args.limit || 20, 50);
+        const targetId = args.message_id;
+
+        // Fetch messages after the target message
+        const messages = await channel.messages.fetch({ after: targetId, limit });
+        const replies = messages
+          .filter((m) => m.reference?.messageId === targetId)
+          .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+          .map((m) => ({
+            id: m.id,
+            author: m.author.username,
+            content: m.content,
+            timestamp: m.createdAt.toISOString(),
+            attachments: m.attachments.map((a) => a.url),
+          }));
+
+        if (replies.length === 0) {
+          return {
+            content: [
+              { type: "text", text: "No replies found to that message." },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(replies, null, 2),
             },
           ],
         };
